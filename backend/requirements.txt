@@ -1,0 +1,42 @@
+# PATHS Backend Dependencies
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+alembic
+psycopg[binary]
+pydantic
+pydantic-settings
+python-dotenv
+email-validator
+qdrant-client
+httpx
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+langchain-text-splitters
+langgraph
+pypdf
+python-docx
+python-multipart
+tenacity
+PyJWT
+passlib==1.7.4
+bcrypt==3.2.2
+pytest
+pytest-asyncio
+requests
+beautifulsoup4
+
+# ── Hourly job scraper integration ─────────────────────────
+apscheduler
+
+# Optional — only required when JOB_SCRAPER_ENABLED=true and
+# JOB_SCRAPER_STUB=false. They power the external Job_Scraper-main
+# Playwright pipeline. Install with:
+#   pip install pandas openpyxl playwright playwright-stealth
+#   playwright install firefox
+# pandas
+# openpyxl
+# playwright
+# playwright-stealth
