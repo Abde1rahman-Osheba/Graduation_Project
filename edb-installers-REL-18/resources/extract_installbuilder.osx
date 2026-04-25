@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+os_version=`uname -r`
+machine_platform=`uname -p`
+machine_arch=`uname -m`
+runtimes_dir=$(cd "$(dirname "${0}")" && pwd)
+EXTRACT_MODE=0
+
+_process_command_line() {
+  case ${1} in
+  --extract-only)
+     EXTRACT_MODE=1
+     ;;
+  *)
+    ;;
+  esac
+}
+
+ARGLIST=$@
+for opt in ${ARGLIST}
+do
+  _process_command_line ${opt}
+done
+
+  if [ "${machine_arch}" == "x86_64" ]; then
+    runtimes="osx-x86_64"
+  fi
+
+  if [ "${machine_arch}" == "arm64" ]; then
+    runtimes="osx-arm64"
+  fi
+
+  executable=none
+    if [ -f "${runtimes_dir}/${runtimes}" ]; then
+      executable=${runtimes}
+    fi
+
+if [ "$executable" == "none" ]; then
+    echo "The current OS X version is not supported"
+    exit 1
+fi
+
+if [ "${1}" == --help -o $EXTRACT_MODE -eq 1 -o "`id -u 2>/dev/null`" == "0" ];then
+    "`dirname \"${0}\"`/$executable" "$@"
+else
+    "`dirname \"${0}\"`/@@PROJECTNAME@@" $executable "$@" --require-admin 1
+fi

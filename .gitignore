@@ -1,0 +1,35 @@
+# Python virtual environment
+Grad/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment files
+.env
+
+# Pytest cache
+.pytest_cache/
+
+# Node modules
+node_modules/
+
+# Temp scripts
+check_sizes.ps1
+check_large.ps1
+
+# IDE
+.idea/
+.vscode/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+backend_logs.txt
+
+# Uploads
+uploads/

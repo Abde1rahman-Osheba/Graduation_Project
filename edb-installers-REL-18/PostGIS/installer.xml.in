@@ -1,0 +1,1800 @@
+<project>
+    <!-- Package details -->
+    <shortName>postgis</shortName>
+    <fullName>PostGIS_PGPG_CURRENT_VERSION</fullName>
+    <version>PG_VERSION_POSTGIS-PG_BUILDNUM_POSTGIS</version>
+    <!-- These options are used on Windows -->
+    <startMenuGroupName>${branding}</startMenuGroupName>
+    <!-- Product Specific Options -->
+    <productDisplayName>PostGIS ${productVersion}</productDisplayName>
+    <productComments>PostGIS ${productVersion}, packaged by EnterpriseDB</productComments>
+    <productUrlHelpLink>http://www.enterprisedb.com</productUrlHelpLink>
+    <productUrlInfoAbout>http://www.enterprisedb.com</productUrlInfoAbout>
+    <!-- The options are used for RPM registration -->
+    <description>PostGIS ${productVersion}, packaged by EnterpriseDB</description>
+    <summary>${msg(install.summary)}</summary>
+    <vendor>EnterpriseDB</vendor>
+    <release>1</release>
+
+    <!-- Installer Size -->
+    <width>550</width>
+    <height>400</height>
+
+    <!-- Misc package options -->
+    <installerFilename>${product_shortname}-pgPG_CURRENT_VERSION-${product_version}-${platform_name}.${platform_exec_suffix}</installerFilename>
+    <enableRollback>0</enableRollback>
+    <requireInstallationByRootUser>${admin_rights}</requireInstallationByRootUser>
+    <windowsSoftwareRegistryPrefix/>
+    <saveRelativePaths>1</saveRelativePaths>
+    <outputDirectory>../output</outputDirectory>
+    <uninstallerDirectory>${installdir}/PostGIS</uninstallerDirectory>
+    <uninstallerName>uninstall-${product_shortname}</uninstallerName>
+    <unattendedModeUI>minimal</unattendedModeUI>
+    <compressionAlgorithm>lzma</compressionAlgorithm>
+    <installationLogFile>${system_temp_directory}/install-${product_shortname}.log</installationLogFile>
+    <uninstallationLogFile>${system_temp_directory}/uninstall-${product_shortname}.log</uninstallationLogFile>
+    <allowWindowResize>1</allowWindowResize>
+    <replaceLockedFilesOnReboot>1</replaceLockedFilesOnReboot>
+    <!-- macOS 64bit App -->
+    <osxPlatforms>osx-x86_64 osx-arm64</osxPlatforms>
+
+    <!-- Images -->
+    <disableSplashScreen>1</disableSplashScreen>
+    <leftImage>../resources/pg-side.png</leftImage>
+
+    <!-- i18n files for the UI -->
+    <allowedLanguages>en</allowedLanguages>
+    <customLanguageFileList>
+        <language>
+            <code>en</code>
+            <encoding>iso8859-1</encoding>
+            <file>i18n/en.lng</file>
+        </language>
+    </customLanguageFileList>
+  <!-- Custom functions -->
+  <functionDefinitionList>
+    <actionDefinition name="createTempDir">
+       <actionList>
+         <globalVariables names="random_number"/>
+         <actionGroup>
+           <actionList>
+            <setInstallerVariable name="iteration" value="0"/>
+            <!-- Create a random number to use unique filenames -->
+             <while>
+               <actionList>
+                 <generateRandomValue length="10" variable="random_number"/>
+                 <runProgram>
+                   <program>sh</program>
+                   <programArguments>-c &lt;&lt;EOF '
+                                     umask 0077
+                                     mkdir "${system_temp_directory}/${dirPrefix}_${random_number}"
+                                     if [ $? -ne 0 ];
+                                     then
+                                        exit 100
+                                     fi
+                                     '
+EOF
+                   </programArguments>
+                 </runProgram>
+                 <break>
+                   <ruleList>
+                    <compareText logic="equals" text="0" value="${program_exit_code}"/>
+                   </ruleList>
+                 </break>
+                <actionGroup>
+                  <actionList>
+                    <throwError text="${msg(cannot.create.tmp.dir)}" abortOnError="1">
+                      <ruleList>
+                        <compareValues value1="${iteration}" logic="equals" value2="9"/>
+                      </ruleList>
+                    </throwError>
+                  </actionList>
+                </actionGroup>
+                 <mathExpression text="${iteration}+1" variable="iteration"/>
+               </actionList>
+               <conditionRuleList>
+                 <compareValues value1="${iteration}" logic="less" value2="10"/>
+               </conditionRuleList>
+             </while>
+             <setInstallerVariable name="random_number" value="${random_number}"/>
+           </actionList>
+           <ruleList>
+             <compareText logic="does_not_equal" text="${platform_name}" value="windows"/>
+           </ruleList>
+         </actionGroup>
+         <actionGroup>
+           <actionList>
+             <generateRandomValue length="10" variable="random_number"/>
+             <createDirectory path="${system_temp_directory}/${dirPrefix}_${random_number}"/>
+             <setInstallerVariable name="random_number" value="${random_number}"/>
+           </actionList>
+           <ruleList>
+             <compareText logic="equals" text="${platform_name}" value="windows"/>
+           </ruleList>
+         </actionGroup>
+       </actionList>
+       <parameterList>
+         <stringParameter name="dirPrefix" allowEmptyValue="0"/>
+       </parameterList>
+    </actionDefinition>
+  </functionDefinitionList>
+    <preShowHelpActionList>
+	<!-- Set the PG Major Version -->
+        <setInstallerVariable name="PGMajorVersion" value="PG_MAJOR_VERSION">
+            <persist>1</persist>
+        </setInstallerVariable>
+	<setInstallerVariable name="defaultpassword" value="postgres"/>
+    </preShowHelpActionList>
+
+    <!-- Prebuild Actons-->
+    <preBuildActionList>
+      <setInstallerVariable name="originalplatform" value="${platform_name}"/>
+      <setInstallerVariable name="originalplatform" value="linux-x32">
+          <ruleList>
+              <compareText text="${platform_name}" value="linux"/>
+          </ruleList>
+      </setInstallerVariable>
+    </preBuildActionList>
+    <!-- Initialisation actions -->
+    <initializationActionList>
+        <setInstallerVariable name="project.parameter(extract_mode).ask" value="0"/>
+	<setInstallerVariable name="productVersion" persist="1" value="PG_VERSION_POSTGIS" />
+	<!-- Abort Installation as trying to  run a 32-bit installer on 64-bit machine -->
+        <throwError>
+          <customErrorMessage>${msg(platform.not.match)}</customErrorMessage>
+          <text>Unknown Error</text>
+          <ruleList>
+            <platformTest type="linux-x64"/>
+            <compareText text="${originalplatform}" value="linux-x32"/>
+          </ruleList>
+        </throwError>
+        <!-- Set the pghost varaible to localhost -->
+        <setInstallerVariable name="pghost" value="localhost">
+            <persist>0</persist>
+        </setInstallerVariable>
+        <!-- Set the PG Current version(if exists) -->
+        <setInstallerVariable name="PGCurrentVersion" value="PG_CURRENT_VERSION">
+            <persist>1</persist>
+        </setInstallerVariable>
+        <setInstallerVariable name="PostGISMajorVersion" value="POSTGIS_MAJOR_VERSION">
+            <persist>1</persist>
+        </setInstallerVariable>
+        <!-- Set the PostGIS version(if exists) -->
+        <setInstallerVariable name="PostGISVersion" value="">
+            <persist>0</persist>
+        </setInstallerVariable>
+        <setInstallerVariable name="PostGISVersionInstalled" value="">
+            <persist>0</persist>
+        </setInstallerVariable>
+	<!-- Set the PG Major Version -->
+        <setInstallerVariable name="PGMajorVersion" value="PG_MAJOR_VERSION">
+            <persist>1</persist>
+        </setInstallerVariable>
+        <!-- Set the default values for unattended mode -->
+        <setInstallerVariable name="pghome" value=""/>
+        <setInstallerVariable name="pgport" value=""/>
+        <setInstallerVariable name="pguser" value=""/>
+        <setInstallerVariable name="defaultuser" value=""/>
+        <setInstallerVariable name="defaultpassword" value=""/>
+        <setInstallerVariable name="installdir" value=""/>
+        <actionGroup>
+            <actionList>
+                <setInstallerVariable name="defaultuser" value="postgres"/>
+                <setInstallerVariable name="defaultpassword" value="postgres"/>
+                <setInstallerVariable name="pguser" value="postgres"/>
+                <setInstallerVariable name="pgpassword" value="postgres"/>
+            </actionList>
+            <ruleList>
+                <compareText>
+                    <logic>equals</logic>
+                    <text>${installer_ui}</text>
+                    <value>unattended</value>
+                </compareText>
+            </ruleList>
+        </actionGroup>
+        <!-- #32210. libxml2 was updated from 2.8.x to 2.9.x after PG 9.3.1 was released. PostGIS built with the new libxml2 does not work against it. -->
+        <actionGroup>
+            <actionList>
+                <iniFileGet file="/etc/postgres-reg.ini" section="PostgreSQL/${PGMajorVersion}" key="Version" variable="PG_INSTALLED_VERSION" />
+                <throwError text="${msg(pg93libxml.error)}">
+                  <ruleEvaluationLogic>or</ruleEvaluationLogic>
+                  <ruleList>
+                    <compareText logic="equals" text="${PG_INSTALLED_VERSION}" value="9.3.0.1"/>
+                    <compareText logic="equals" text="${PG_INSTALLED_VERSION}" value="9.3.1.1"/>
+                  </ruleList>
+                </throwError>
+            </actionList>
+            <ruleList>
+                <compareText logic="does_not_equal" text="${platform_name}" value="windows"/>
+                <fileExists path="/etc/postgres-reg.ini" />
+            </ruleList>
+        </actionGroup>
+    </initializationActionList>
+    <!-- Preinstallation actions -->
+    <preInstallationActionList>
+     <!-- Creating a temporary directory -->
+     <createTempDir dirPrefix="${product_shortname}"/>
+
+      <!-- Abort installation if not super-user and not running in extract-only mode-->
+      <actionGroup>
+          <actionList>
+              <throwError text="${msg(Installer.Warning.RootPrivileges)}">
+                  <ruleList>
+                      <isFalse value="${installer_is_root_install}"/>
+                      <compareText logic="does_not_equal" text="${platform_name}" value="windows"/>
+                  </ruleList>
+              </throwError>
+              <throwError text="${msg(Installer.Warning.AdministratorPrivileges)}">
+                  <ruleList>
+                      <isFalse value="${installer_is_root_install}"/>
+                      <compareText logic="equals" text="${platform_name}" value="windows"/>
+                  </ruleList>
+              </throwError>
+          </actionList>
+          <ruleList>
+              <isFalse value="${extract_mode}"/>
+          </ruleList>
+      </actionGroup>
+      <!-- Creates the ini file if not exits -->
+      <touchFile path="/etc/postgres-reg.ini">
+          <ruleList>
+              <compareText>
+                   <logic>does_not_equal</logic>
+                   <text>${platform_name}</text>
+                   <value>windows</value>
+              </compareText>
+              <isFalse value="${extract_mode}"/>
+          </ruleList>
+       </touchFile>
+ 
+
+	<!-- Get the PG PG_MAJOR_VERSION installation details -->
+	<actionGroup>
+	    <actionList>
+		<iniFileGet file="/etc/postgres-reg.ini" section="PostgreSQL/${PGMajorVersion}" key="InstallationDirectory" variable="pghome" /> 
+		<iniFileGet file="/etc/postgres-reg.ini" section="PostgreSQL/${PGMajorVersion}" key="Port" variable="pgport" /> 
+		<iniFileGet file="/etc/postgres-reg.ini" section="PostgreSQL/${PGMajorVersion}" key="Superuser" variable="pguser" /> 
+	    </actionList>
+	    <ruleList>
+                <compareText logic="does_not_equal" text="${platform_name}" value="windows"/>
+	    </ruleList>
+	</actionGroup>
+
+	<actionGroup>
+	    <actionList>
+		<registryGet key="HKEY_LOCAL_MACHINE\SOFTWARE\PostgreSQL\Installations\postgresql-${PGMajorVersion}" 
+			     name="Base Directory" variable="pghome" />		 
+		<registryGet key="HKEY_LOCAL_MACHINE\SOFTWARE\PostgreSQL\Installations\postgresql-${PGMajorVersion}" 
+			     name="Service ID" variable="pgservice_id" />		 
+		<registryGet key="HKEY_LOCAL_MACHINE\SOFTWARE\PostgreSQL\Services\${pgservice_id}" 
+			     name="Port" variable="pgport" />		 
+		<registryGet key="HKEY_LOCAL_MACHINE\SOFTWARE\PostgreSQL\Services\${pgservice_id}" 
+			     name="Database Superuser" variable="pguser" />		 
+	    </actionList>
+            <ruleList>
+                <compareText logic="equals" text="${platform_name}" value="windows"/>
+            </ruleList>
+	</actionGroup>
+
+	<!-- Throw Error if PG PG_MAJOR_VERSION not found -->
+	<if>
+	    <actionList>
+		<throwError text="${msg(pg.not.found.win64)}" >
+		    <ruleEvaluationLogic>or</ruleEvaluationLogic>
+		    <ruleList>
+			<compareText text="${pghome}" logic="equals" value="" />
+			<compareText text="${pguser}" logic="equals" value="" />
+			<compareText text="${pgport}" logic="equals" value="" />
+		    </ruleList>
+		</throwError>
+	    </actionList>
+	    <elseActionList>
+		<throwError text="${msg(pg.not.found)}" >
+		    <ruleEvaluationLogic>or</ruleEvaluationLogic>
+		    <ruleList>
+			<compareText text="${pghome}" logic="equals" value="" />
+			<compareText text="${pguser}" logic="equals" value="" />
+			<compareText text="${pgport}" logic="equals" value="" />
+		    </ruleList>
+		</throwError>
+	    </elseActionList>
+	    <conditionRuleList>
+		<platformTest type="windows-x64" />
+	    </conditionRuleList>
+	</if>
+
+	<!-- Set installation directory as the PGHOME -->
+	<setInstallerVariable name="installdir" value="${pghome}" />
+
+        <!-- Do not create uninstaller in case of extract-only mode -->
+        <setInstallerVariable name="createUninstaller" value="0" persist="1">
+	    <ruleList>
+		<isTrue value="${extract_mode}" />
+	    </ruleList>
+	</setInstallerVariable>
+
+        <setInstallerVariable name="branding" value="" persist="1"/>
+        <setInstallerVariable name="pg_config" value="${installdir}/bin/pg_config"/>
+        <setInstallerVariable name="pg_config" value="${installdir}\bin\pg_config.exe">
+          <ruleList>
+            <compareText logic="equals" text="${platform_name}" value="windows"/>
+          </ruleList>
+        </setInstallerVariable>
+
+        <setInstallerVariable name="parentlibdir" value="${installdir}"/>
+        <setInstallerVariable name="libdir" value="${installdir}/lib"/>
+        <setInstallerVariable name="sharedir" value="${installdir}/share"/>
+        <setInstallerVariable name="mandir" value="${installdir}/man"/>
+        <setInstallerVariable name="docdir" value="${installdir}/doc"/>
+
+        <actionGroup>
+            <actionList>
+                <setInstallerVariableFromScriptOutput>
+                    <name>libdir</name>
+                    <exec>${pg_config}</exec>
+                    <execArgs>--libdir</execArgs>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                    <onErrorActionList>
+                        <setInstallerVariable name="libdir" value="${installdir}/lib"/>
+                    </onErrorActionList>
+                </setInstallerVariableFromScriptOutput>
+                <setInstallerVariableFromScriptOutput>
+                    <name>sharedir</name>
+                    <exec>${pg_config}</exec>
+                    <execArgs>--sharedir</execArgs>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                    <onErrorActionList>
+                        <setInstallerVariable name="sharedir" value="${installdir}/share"/>
+                    </onErrorActionList>
+                </setInstallerVariableFromScriptOutput>
+                <setInstallerVariableFromScriptOutput>
+                    <name>docdir</name>
+                    <exec>${pg_config}</exec>
+                    <execArgs>--docdir</execArgs>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                    <onErrorActionList>
+                        <setInstallerVariable name="docdir" value="${installdir}/doc"/>
+                    </onErrorActionList>
+                </setInstallerVariableFromScriptOutput>
+                <setInstallerVariableFromScriptOutput>
+                    <name>mandir</name>
+                    <exec>${pg_config}</exec>
+                    <execArgs>--mandir</execArgs>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                    <onErrorActionList>
+                        <setInstallerVariable name="mandir" value="${installdir}/man"/>
+                    </onErrorActionList>
+                </setInstallerVariableFromScriptOutput>
+                <setInstallerVariableFromRegEx>
+                    <name>parentlibdir</name>
+                    <text>${libdir}</text>
+                    <pattern>(.*)[/\\]lib</pattern>
+                    <substitution>\1</substitution>
+                </setInstallerVariableFromRegEx>
+            </actionList>
+            <ruleList>
+                <fileExists path="${pg_config}"/>
+            </ruleList>
+        </actionGroup>
+
+        <!-- Do not perform the below actions in case of extract-only mode -->
+        <actionGroup>
+            <actionList>
+                <setInstallerVariable name="project.windowsSoftwareRegistryPrefix" value="${project.vendor}\${project.fullName}"/>
+
+               <!-- WIN: Get the branding & Check Previous Installation of PostGIS -->
+                <actionGroup>
+                    <actionList>
+                        <registryGet>
+                            <key>HKEY_LOCAL_MACHINE\SOFTWARE\EnterpriseDB\PostGIS_PG${PGCurrentVersion}</key>
+                            <name>Branding</name>
+                            <variable>iBranding</variable>
+                        </registryGet>
+                        <registryGet>
+                            <key>HKEY_LOCAL_MACHINE\SOFTWARE\EnterpriseDB\PostGIS_PG${PGCurrentVersion}</key>
+                            <name>Version</name>
+                            <variable>PostGISVersion</variable>
+                        </registryGet>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <logic>equals</logic>
+                            <text>${platform_name}</text>
+                            <value>windows</value>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+                <!-- LIN & MAC: Get the branding & Check Previous Installation of PostGIS -->
+                <actionGroup>
+                    <actionList>
+                        <iniFileGet>
+                            <file>/etc/postgres-reg.ini</file>
+                            <section>PostGIS_PG${PGCurrentVersion}</section>
+                            <key>Branding</key>
+                            <variable>iBranding</variable>
+                        </iniFileGet>
+                        <iniFileGet>
+                            <file>/etc/postgres-reg.ini</file>
+                            <section>PostGIS_PG${PGCurrentVersion}</section>
+                            <key>Version</key>
+                            <variable>PostGISVersion</variable>
+                        </iniFileGet>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${platform_name}</text>
+                            <value>windows</value>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+                <!-- Getting the Version Installed minus the buildnum -->
+                <setInstallerVariableFromRegEx>
+                    <name>PostGISVersionInstalled</name>
+                    <text>${PostGISVersion}</text>
+                    <pattern>([0-9]*)-[0-9]*$</pattern>
+                    <substitution>\1</substitution>
+                    <ruleList>
+                       <compareText>
+                          <logic>does_not_equal</logic>
+                          <text>${PostGISVersion}</text>
+                          <value/>
+                       </compareText>
+                    </ruleList>
+                 </setInstallerVariableFromRegEx>
+
+        	<!-- Existing install, with branding -->
+        	<setInstallerVariable>
+        		<name>branding</name>
+        		<persist>0</persist>
+        		<value>${iBranding}</value>
+        		<ruleList>
+        			<compareText>
+        				<logic>does_not_equal</logic>
+        				<text>${iBranding}</text>
+        				<value></value>
+        			</compareText>
+        		</ruleList>
+        	</setInstallerVariable>
+
+                <registryGet>
+                    <key>HKEY_LOCAL_MACHINE\SOFTWARE\PostgreSQL\Installations\postgresql-${PGCurrentVersion}</key>
+                    <name>Branding</name>
+                    <variable>branding</variable>
+		    <ruleList>
+                        <compareText text="${platform_name}" logic="equals" value="windows" />
+                        <compareText text="${branding}" logic="equals" value="" />
+		    </ruleList>
+                </registryGet>
+
+		<iniFileGet>
+                    <file>/etc/postgres-reg.ini</file>
+                    <section>PostgreSQL/{PGCurrentVersion}</section>
+                    <key>Branding</key>
+                    <variable>branding</variable>
+		    <ruleList>
+                        <compareText text="${platform_name}" logic="does_not_equal" value="windows" />
+                        <compareText text="${branding}" logic="equals" value="" />
+		    </ruleList>
+                </iniFileGet>
+ 
+		<!-- Set the windows branding to (x86) on win 64 machines as currently we dont have win 64 port of PostGIS -->
+		<setInstallerVariable name="branding" value="PostgreSQL PG_MAJOR_VERSION (x86)" >
+		    <ruleList>
+			<platformTest type="windows-x64" /> 
+                        <compareText text="${branding}" logic="equals" value="" />
+		    </ruleList>
+		</setInstallerVariable>
+
+        	<!-- New install, nothing set on the command line -->
+        	<setInstallerVariable>
+        		<name>branding</name>
+        		<persist>0</persist>
+        		<value>PostgreSQL PG_MAJOR_VERSION</value>
+        		<ruleList>
+        			<compareText>
+        				<logic>equals</logic>
+        				<text>${branding}</text>
+        				<value></value>
+        			</compareText>
+        		</ruleList>
+        	</setInstallerVariable>
+                <logMessage>
+                    <text>Using branding: ${branding}</text>
+                </logMessage>
+                <!-- WIN: Set Installation Directory in case of re-install/upgrade -->
+                <actionGroup>
+                    <actionList>
+                        <registryGet>
+                            <key>HKEY_LOCAL_MACHINE\SOFTWARE\EnterpriseDB\PostGIS_PG${PGCurrentVersion}</key>
+                            <name>Location</name>
+                            <variable>installdir</variable>
+                        </registryGet>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${PostGISVersionInstalled}</text>
+                            <value></value>
+                        </compareText>
+                        <compareText>
+                            <logic>equals</logic>
+                            <text>${platform_name}</text>
+                            <value>windows</value>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+                <!-- LIN | MAC : Set Installation Directory in case of re-install/upgrade -->
+                <actionGroup>
+                    <actionList>
+                        <iniFileGet>
+                            <file>/etc/postgres-reg.ini</file>
+                            <section>PostGIS_PG${PGCurrentVersion}</section>
+                            <key>InstallationDirectory</key>
+                            <variable>installdir</variable>
+                        </iniFileGet>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${PostGISVersionInstalled}</text>
+                            <value></value>
+                        </compareText>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${platform_name}</text>
+                            <value>windows</value>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+                <!-- Exit the installation if the PostGIS version installed is not the same as the current Version -->
+                <!-- For versions less than 1.4 -->
+                <actionGroup>
+                    <actionList>
+                        <showWarning>
+                            <text>${msg(postgis.incompatible.install.error)}</text>
+                        </showWarning>
+                        <exit>
+                           <exitCode>0</exitCode>
+                        </exit>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${PostGISVersionInstalled}</text>
+                            <value>PG_VERSION_POSTGIS</value>
+                        </compareText>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${PostGISVersionInstalled}</text>
+                            <value/>
+                        </compareText>
+                        <compareVersions version1="${PostGISVersionInstalled}" version2="1.4.0" logic="less" />
+                    </ruleList>
+                </actionGroup>
+                <!-- Setting the installation type as upgrade if previous installation found -->
+                <actionGroup>
+                    <actionList>
+                        <setInstallerVariable name="installationType" value="upgrade"/>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${PostGISVersionInstalled}</text>
+                            <value></value>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+
+                <!-- Validate the PostgreSQL Server Details in unattended mode -->
+                <actionGroup>
+                    <actionList>
+                        <setEnvironmentVariable name="PGHOST" value="${pghost}"/>
+                        <setEnvironmentVariable name="PGUSER" value="${pguser}"/>
+                        <setEnvironmentVariable name="PGPASSWORD" value="${pgpassword}"/>
+                        <setEnvironmentVariable name="PGPORT" value="${pgport}"/>
+                        <setEnvironmentVariable name="PGDATABASE" value=""/>
+                        <setInstallerVariable name="pgtempdbname" value=""/>
+                        <setInstallerVariable name="connection" value=""/>
+
+                        <setInstallerVariable name="psql_executable" value="${installdir}/bin/psql"/>
+                        <setInstallerVariable name="psql_executable" value="${installdir}\bin\psql.exe">
+                            <ruleList>
+                                <compareText logic="equals" text="${platform_name}" value="windows"/>
+                            </ruleList>
+                        </setInstallerVariable>
+
+                        <!-- Check connection against the database, if given as the command-line argument -->
+                        <actionGroup>
+                            <actionList>
+                                <setInstallerVariableFromScriptOutput name="connection"
+                                        workingDirectory="${installdir}/bin"
+                                        abortOnError="0" showMessageOnError="0"
+                                        exec="${psql_executable}"
+                                        execArgs="-l -d &quot;${pgdatabase}&quot;"/>
+                                <stringModify text="${connection}" variable="connection" logic="trim"/>
+                            </actionList>
+                            <ruleList>
+                                <compareText logic="does_not_equal" text="${pgdatabase}" value=""/>
+                            </ruleList>
+                        </actionGroup>
+
+                        <foreach variables="dbname">
+                            <values>postgres edb template1</values>
+                            <actionList>
+                                <setInstallerVariableFromScriptOutput name="connection"
+                                        workingDirectory="${installdir}/bin"
+                                        abortOnError="0" showMessageOnError="0"
+                                        exec="${psql_executable}"
+                                        execArgs="-l -d ${dbname}">
+                                    <ruleList>
+                                        <compareText logic="equals" text="${connection}" value=""/>
+                                    </ruleList>
+                                </setInstallerVariableFromScriptOutput>
+
+                                <stringModify text="${connection}" variable="connection" logic="trim"/>
+                                <setInstallerVariable name="pgtempdbname" value="${dbname}">
+                                    <ruleList>
+                                        <compareText logic="does_not_equal" text="${connection}" value=""/>
+                                        <compareText logic="equals" text="${pgtempdbname}" value=""/>
+                                    </ruleList>
+                                </setInstallerVariable>
+                            </actionList>
+                            <ruleList>
+                                <compareText logic="equals" text="${pgdatabase}" value=""/>
+                            </ruleList>
+                        </foreach>
+
+                        <throwError text="${program_stderr}">
+                            <ruleList>
+                                <compareText logic="equals" text="${connection}" value=""/>
+                            </ruleList>
+                        </throwError>
+			
+                        <!-- Check db exists -->
+                        <setInstallerVariable name="dbexist" value=""/>
+                        <setInstallerVariableFromScriptOutput name="dbexist"
+                                workingDirectory="${installdir}/bin"
+                                abortOnError="0" showMessageOnError="0"
+                                exec="${psql_executable}"
+                                execArgs="-t -A -c &quot;SELECT count(*) FROM pg_catalog.pg_database d WHERE d.datname='template_postgis'&quot;"/>
+
+                    </actionList>
+                    <ruleList>
+                        <compareText logic="equals" text="${installer_ui}" value="unattended"/>
+                        <compareText>
+                            <logic>equals</logic>
+                            <text>${PostGISVersionInstalled}</text>
+                            <value></value>
+                        </compareText> 
+                        <isFalse value="${upgrade_mode}" />
+                    </ruleList>
+                </actionGroup>
+            </actionList>
+            <ruleList>
+                <isFalse value="${extract_mode}"/>
+            </ruleList>
+        </actionGroup>
+
+    </preInstallationActionList>
+
+    <readyToInstallActionList>
+        <actionGroup>
+            <actionList>
+                <setInstallerVariable name="pgdatabase" value="${pgtempdbname}">
+                    <ruleList>
+                        <compareText logic="equals" text="${pgdatabase}" value=""/>
+                    </ruleList>
+                </setInstallerVariable>
+                <setEnvironmentVariable name="PGDATABASE" value="${pgdatabase}"/>
+                <!-- LIN : Remove the old Menu shortcuts -->
+		<runProgram>
+		  <program>${installdir}/PostGIS/installer/PostGIS/removeshortcuts.sh</program>
+		  <programArguments>"${installdir}" "${PostGISVersionInstalled}" "PG_MAJOR_VERSION" "${branding}"</programArguments>
+		  <abortOnError>0</abortOnError>
+		  <showMessageOnError>0</showMessageOnError>
+		  <ruleList>
+		    <compareText> 
+                         <logic>contains</logic>
+                         <text>${platform_name}</text>
+                         <value>linux</value>
+                    </compareText>
+		    <compareText>
+		    	<logic>does_not_equal</logic>
+		    	<text>${PostGISVersionInstalled}</text>
+		    	<value></value>
+		    </compareText>
+		  </ruleList>
+		</runProgram>
+
+            </actionList>
+            <ruleList>
+                <isFalse value="${extract_mode}"/>
+            </ruleList>
+        </actionGroup>
+    </readyToInstallActionList>
+
+    <!-- Post installation actions -->
+    <postInstallationActionList>
+        <!-- Do not perform the below actions in case of extract-only mode -->
+        <actionGroup>
+            <actionList>
+                <!-- LIN & MAC: Write the PostGIS Version to INI File -->
+                <actionGroup>
+                    <actionList>
+                        <iniFileSet>
+                            <file>/etc/postgres-reg.ini</file>
+                            <section>PostGIS_PG${PGCurrentVersion}</section>
+                            <key>Description</key>
+                            <value>${msg(install.summary)}</value>
+                        </iniFileSet>
+                        <iniFileSet>
+                            <file>/etc/postgres-reg.ini</file>
+                            <section>PostGIS_PG${PGCurrentVersion}</section>
+                            <key>InstallationDirectory</key>
+                            <value>${installdir}</value>
+                        </iniFileSet>
+                        <iniFileSet>
+                            <file>/etc/postgres-reg.ini</file>
+                            <section>PostGIS_PG${PGCurrentVersion}</section>
+                            <key>Version</key>
+                            <value>${product_version}</value>
+                        </iniFileSet>
+                        <iniFileSet>
+                            <file>/etc/postgres-reg.ini</file>
+                            <section>PostGIS_PG${PGCurrentVersion}</section>
+                            <key>Branding</key>
+                            <value>${branding}</value>
+                        </iniFileSet>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <text>${platform_name}</text>
+                            <logic>does_not_equal</logic>
+                            <value>windows</value>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+                <registrySet>
+                    <key>HKEY_LOCAL_MACHINE\SOFTWARE\EnterpriseDB\PostGIS_PG${PGCurrentVersion}</key>
+                    <name>Branding</name>
+                    <value>${branding}</value>
+                    <ruleList>
+                        <compareText>
+                            <text>${platform_name}</text>
+                            <logic>equals</logic>
+                            <value>windows</value>
+                        </compareText>
+                    </ruleList>
+                </registrySet>
+
+                <deleteFile path="/Applications/${branding}/PostGIS" >
+                   <ruleList>
+                       <fileExists path="/Applications/${branding}/PostGIS" />
+                   </ruleList>
+                </deleteFile>
+                <deleteFile path="/Applications/${branding}/JDBC Docs.app" >
+                   <ruleList>
+                       <fileExists path="/Applications/${branding}/JDBC Docs.app" />
+                   </ruleList>
+                </deleteFile>
+                <deleteFile path="/Applications/${branding}/PostGIS Docs.app" >
+                   <ruleList>
+                       <fileExists path="/Applications/${branding}/PostGIS Docs.app" />
+                   </ruleList>
+                </deleteFile>
+
+                <!-- LIN & MAC: Create Menu Shortcuts -->
+                <actionGroup>
+                    <actionList>
+                        <runProgram>
+                            <program>${installdir}/PostGIS/installer/PostGIS/createshortcuts.sh</program>
+                            <programArguments>"${installdir}" "${PGMajorVersion}" "${PostGISMajorVersion}" "${branding}" "${docdir}" "${system_temp_directory}/${product_shortname}_${random_number}"</programArguments>
+                            <progressText>${msg(progress.text.creating.shortcuts)}</progressText>
+                            <abortOnError>0</abortOnError>
+                            <showMessageOnError>0</showMessageOnError>
+                        </runProgram>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <logic>does_not_equal</logic>
+                            <text>${platform_name}</text>
+                            <value>windows</value>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+
+                <!-- Create Template Spatial Database -->
+                <setEnvironmentVariable name="PGHOST" value="${pghost}"/>
+                <setEnvironmentVariable name="PGUSER" value="${pguser}"/>
+                <setEnvironmentVariable name="PGPASSWORD" value="${pgpassword}"/>
+                <setEnvironmentVariable name="PGPORT" value="${pgport}"/>
+
+                <setInstallerVariable name="psql_executable" value="${installdir}/bin/psql"/>
+                <setInstallerVariable name="psql_executable" value="${installdir}\bin\psql.exe">
+                    <ruleList>
+                        <compareText logic="equals" text="${platform_name}" value="windows"/>
+                    </ruleList>
+                </setInstallerVariable>
+
+                <actionGroup>
+                    <actionList>
+                        <runProgram program="${psql_executable}"
+                              programArguments="-t -A -c &quot;CREATE DATABASE template_postgis&quot;"
+                              progressText="${msg(progress.text.creating.templatedb)}"
+                              abortOnError="0" showMessageOnError="1"
+                              workingDirectory="${installdir}/bin"/>
+                        <runProgram program="${psql_executable}"
+                              programArguments="-c &quot;UPDATE pg_database SET datistemplate='t' WHERE datname='template_postgis'&quot;"
+                              progressText="${msg(progress.text.creating.templatedb)}"
+                              abortOnError="0" showMessageOnError="1"
+                              workingDirectory="${installdir}/bin"/>
+                        <runProgram program="${psql_executable}"
+                              programArguments="-t -A -d template_postgis -c &quot;CREATE LANGUAGE plpgsql&quot;"
+                              progressText="${msg(progress.text.creating.plpgsql)}"
+                              abortOnError="0" showMessageOnError="0"
+                              workingDirectory="${installdir}/bin"/>
+                        <!-- The core postgis extension installs PostGIS geometry, geography, raster, spatial_ref_sys and all the functions and comments -->
+                        <runProgram program="${psql_executable}"
+                              programArguments="-c &quot;CREATE EXTENSION postgis&quot; -d template_postgis"
+                              progressText="${msg(progress.text.installing.postgis.extn)}"
+                              abortOnError="0" showMessageOnError="0"
+                              workingDirectory="${installdir}/bin"/>
+
+                    </actionList>
+                    <ruleList>
+                        <isFalse value="${dbexist}"/>
+                        <isFalse value="${upgrade_mode}"/>
+			<compareText>
+			    <logic>equals</logic>
+			    <text>${PostGISVersionInstalled}</text>
+			    <value></value>
+			</compareText>
+                    </ruleList>
+                </actionGroup>
+
+                <!-- In case of upgrade (different version), ask user to run the upgrade script manually -->
+                <showInfo text="${msg(postgis.upgrade.info)}" >
+                    <ruleList>
+                        <compareValues logic="does_not_equal" value1="${PostGISVersionInstalled}" value2="${productVersion}"/>
+                        <compareText logic="does_not_equal" text="${PostGISVersionInstalled}" value=""/>
+                    </ruleList>
+                </showInfo>
+            </actionList>
+            <ruleList>
+                <isFalse value="${extract_mode}"/>
+            </ruleList>
+        </actionGroup>
+  
+      <deleteFile path="${system_temp_directory}/${product_shortname}_${random_number}" >
+            <ruleList>
+                <fileExists path="${system_temp_directory}/${product_shortname}_${random_number}" />
+            </ruleList>
+      </deleteFile>
+
+    </postInstallationActionList>
+    <installationAbortedActionList>
+      <deleteFile path="${system_temp_directory}/${product_shortname}_${random_number}" >
+        <ruleList>
+          <fileExists path="${system_temp_directory}/${product_shortname}_${random_number}" />
+        </ruleList>
+      </deleteFile>
+    </installationAbortedActionList>
+
+    <!-- preUninstallation actions -->
+    <preUninstallationActionList>
+
+        <!-- Abort uninstallation if not super-user/Administrator -->
+        <actionGroup>
+            <actionList>
+                <showWarning text="${msg(Installer.Warning.UninstallerAdministratorPrivileges)}"/>
+                <exit/>
+            </actionList>
+            <ruleList>
+                <isFalse value="${installer_is_root_install}"/>
+                <compareText logic="equals" text="${platform_name}" value="windows"/>
+            </ruleList>
+        </actionGroup>
+        <actionGroup>
+            <actionList>
+                <showWarning text="${msg(Installer.Warning.UninstallerRootPrivileges)}"/>
+                <exit/>
+            </actionList>
+            <ruleList>
+                <isFalse value="${installer_is_root_install}"/>
+                <compareText logic="does_not_equal" text="${platform_name}" value="windows"/>
+            </ruleList>
+        </actionGroup>
+
+        <!-- LIN & MAC: Unsetting the PostGIS values in the ini file -->
+        <actionGroup>
+            <actionList>
+                <iniFileSet>
+                    <file>/etc/postgres-reg.ini</file>
+                    <section>PostGIS_PG${PGCurrentVersion}</section>
+                    <key>Description</key>
+                    <value/>
+                </iniFileSet>
+                <iniFileSet>
+                    <file>/etc/postgres-reg.ini</file>
+                    <section>PostGIS_PG${PGCurrentVersion}</section>
+                    <key>InstallationDirectory</key>
+                    <value/>
+                </iniFileSet>
+                <iniFileSet>
+                    <file>/etc/postgres-reg.ini</file>
+                    <section>PostGIS_PG${PGCurrentVersion}</section>
+                    <key>Version</key>
+                    <value/>
+                </iniFileSet>
+                <iniFileSet>
+                    <file>/etc/postgres-reg.ini</file>
+                    <section>PostGIS_PG${PGCurrentVersion}</section>
+                    <key>Branding</key>
+                    <value/>
+                </iniFileSet>
+            </actionList>
+            <ruleList>
+                <compareText>
+                    <logic>does_not_equal</logic>
+                    <text>${platform_name}</text>
+                    <value>windows</value>
+                </compareText>
+            </ruleList>
+        </actionGroup>
+        <!-- LIN : Remove Menu shortcuts -->
+        <actionGroup>
+            <actionList>
+                <runProgram>
+                    <program>${installdir}/PostGIS/installer/PostGIS/removeshortcuts.sh</program>
+                    <programArguments>"${installdir}" "${PostGISMajorVersion}" "PG_MAJOR_VERSION" "${branding}"</programArguments>
+                    <abortOnError>0</abortOnError>
+                    <showMessageOnError>0</showMessageOnError>
+                </runProgram>
+            </actionList>
+            <ruleList>
+                <compareText>
+                    <logic>contains</logic>
+                    <text>${platform_name}</text>
+                    <value>linux</value>
+                </compareText>
+            </ruleList>
+        </actionGroup>
+        <!-- MAC : Remove Menu shortcuts -->
+        <actionGroup>
+            <actionList>
+                <deleteFile>
+                    <path>/Applications/${branding}/PostGIS</path>
+                </deleteFile>
+            </actionList>
+            <ruleList>
+                <compareText>
+                    <logic>equals</logic>
+                    <text>${platform_name}</text>
+                    <value>osx</value>
+                </compareText>
+            </ruleList>
+        </actionGroup>
+
+    </preUninstallationActionList>
+    <!-- Post un-installation actions -->
+    <postUninstallationActionList>
+        <!-- Promt user about the database and role drop/deletion -->
+        <showInfo>
+            <text>${msg(db.drop.info)}</text>
+        </showInfo>
+    </postUninstallationActionList>
+    <!-- Components -->
+    <componentList>
+        <component>
+            <name>PostGIS</name>
+            <description>PostGIS</description>
+            <canBeEdited>0</canBeEdited>
+            <selected>1</selected>
+            <show>1</show>
+            <folderList>
+	        <!-- MAC: Program files -->
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}</destination>
+                    <name>programfilesbinosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/PostGIS/bin</origin>
+                        </distributionDirectory>
+			<distributionFile origin="staging/osx/postgis_3rd_party_licenses.txt"/>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${parentlibdir}/lib/postgresql</destination>
+                    <name>programfileslibpostgresqlosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/osx/PostGIS/lib/postgresql/*</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${parentlibdir}/lib</destination>
+                    <name>programfileslibosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/osx/PostGIS/lib/*</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}</destination>
+                    <name>programfilesshareosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/PostGIS/share/contrib</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}</destination>
+                    <name>programfilesgdalosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/PostGIS/share/gdal</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}</destination>
+                    <name>programfilesprojosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/PostGIS/share/proj</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}/extension</destination>
+                    <name>programfilesshareosxextn1</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionFile>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/osx/PostGIS/share/extension/address_standardizer*.*</origin>
+                        </distributionFile>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}/extension</destination>
+                    <name>programfilesshareosxextn2</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionFile>
+                           <allowWildcards>1</allowWildcards>
+			    <origin>staging/osx/PostGIS/share/extension/postgis*.*</origin>
+                        </distributionFile>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${docdir}</destination>
+                    <name>programfilesdocosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/PostGIS/doc/postgis</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>programfilesutilsjavaosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/PostGIS/utils</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/osx/PostGIS/man</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Installation Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>installfilesosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/installer</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Launch And Menu Scripts</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>menuandlaunchfilesosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/scripts</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}</destination>
+                    <name>programfilesdebugsymbolsosx</name>
+                    <platforms>osx</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/osx/debug_symbols</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <!-- LINUX: Program files -->
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}</destination>
+                    <name>programfilesbinlinux</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux/PostGIS/bin</origin>
+                        </distributionDirectory>
+			<distributionFile origin="staging/linux/postgis_3rd_party_licenses.txt"/>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${parentlibdir}/lib/postgresql</destination>
+                    <name>programfilesliblinux</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/linux/PostGIS/lib/*</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}</destination>
+                    <name>programfilessharelinux</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux/PostGIS/share/contrib</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}/extension</destination>
+                    <name>programfilessharelinuxextn1</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionFile>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/linux/PostGIS/share/extension/postgis*.control</origin>
+                        </distributionFile>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}/extension</destination>
+                    <name>programfilessharelinuxextn2</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionFile>
+                           <allowWildcards>1</allowWildcards>
+			    <origin>staging/linux/PostGIS/share/extension/postgis*.*</origin>
+                        </distributionFile>
+                    </distributionFileList>
+                </folder>
+		<folder>
+                    <description>Program Files</description>
+                    <destination>${docdir}</destination>
+                    <name>programfilesdoclinux</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux/PostGIS/doc/postgis</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>programfilesutilsjavalinux</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux/PostGIS/utils</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/linux/PostGIS/java</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/linux/PostGIS/man</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Installation Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>installfileslinux</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux/installer</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Launch And Menu Scripts</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>menuandlaunchfileslinux</name>
+                    <platforms>linux</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux/scripts</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+	        <!-- LINUX-X64: Program files -->
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}</destination>
+                    <name>programfilesbinlinux-x64</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/PostGIS/bin</origin>
+                        </distributionDirectory>
+			<distributionFile origin="staging/linux-x64/postgis_3rd_party_licenses.txt"/>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${parentlibdir}/lib/postgresql</destination>
+                    <name>programfilesliblinux-x64</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/linux-x64/PostGIS/lib/*</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}</destination>
+                    <name>programfilessharelinux-x64</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/PostGIS/share/contrib</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}/extension</destination>
+                    <name>programfilessharelinux64extn1</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionFile>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/linux-x64/PostGIS/share/extension/postgis*.control</origin>
+                        </distributionFile>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}/extension</destination>
+                    <name>programfilessharelinux64extn2</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionFile>
+                           <allowWildcards>1</allowWildcards>
+			    <origin>staging/linux-x64/PostGIS/share/extension/postgis*.*</origin>
+                        </distributionFile>
+                    </distributionFileList>
+                </folder>
+		<folder>
+                    <description>Program Files</description>
+                    <destination>${docdir}</destination>
+                    <name>programfilesdoclinux-x64</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/PostGIS/doc/postgis</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>programfilesutilsjavalinux-x64</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/PostGIS/utils</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/PostGIS/java</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/PostGIS/man</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Installation Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>installfileslinux-x64</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/installer</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Launch And Menu Scripts</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>menuandlaunchfileslinux-x64</name>
+                    <platforms>linux-x64</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-x64/scripts</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <!-- LINUX-PPC64: Program files -->
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}</destination>
+                    <name>programfilesbinlinux-ppc64</name>
+                    <platforms>linux-ppc</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/PostGIS/bin</origin>
+                        </distributionDirectory>
+			<distributionFile origin="staging/linux-ppc64/postgis_3rd_party_licenses.txt"/>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${parentlibdir}/lib/postgresql</destination>
+                    <name>programfilesliblinux-ppc64</name>
+                    <platforms>linux-ppc</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <allowWildcards>1</allowWildcards>
+                            <origin>staging/linux-ppc64/PostGIS/lib</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}</destination>
+                    <name>programfilessharelinux-ppc64</name>
+                    <platforms>linux-ppc</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/PostGIS/share/contrib</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${docdir}</destination>
+                    <name>programfilesdoclinux-ppc64</name>
+                    <platforms>linux-ppc</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/PostGIS/doc/postgis</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>programfilesutilsjavalinux-ppc64</name>
+                    <platforms>linux-ppc</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/PostGIS/utils</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/PostGIS/java</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/PostGIS/man</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Installation Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>installfileslinux-ppc64</name>
+                    <platforms>linux-ppc</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/installer</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Launch And Menu Scripts</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>menuandlaunchfileslinux-ppc64</name>
+                    <platforms>linux-ppc</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/linux-ppc64/scripts</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <!-- Windows: Program files -->
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}</destination>
+                    <name>programfilesbinwindows</name>
+                    <platforms>windows</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/windows/PostGIS/bin</origin>
+                        </distributionDirectory>
+			<distributionFile origin="staging/windows/postgis_3rd_party_licenses.txt"/>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${sharedir}</destination>
+                    <name>programfilessharewindows</name>
+                    <platforms>windows</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/windows/PostGIS/share/contrib</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${docdir}</destination>
+                    <name>programfilesdocwindows</name>
+                    <platforms>windows</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/windows/PostGIS/doc/postgis</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Program Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>programfilesutilsjavawindows</name>
+                    <platforms>windows</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/windows/PostGIS/utils</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/windows/PostGIS/java</origin>
+                        </distributionDirectory>
+                        <distributionDirectory>
+                            <origin>staging/windows/PostGIS/man</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Installation Files</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>installfileswindows</name>
+                    <platforms>windows</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/windows/installer</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+                <folder>
+                    <description>Launch And Menu Scripts</description>
+                    <destination>${installdir}/PostGIS</destination>
+                    <name>menuandlaunchfileswindows</name>
+                    <platforms>windows</platforms>
+                    <distributionFileList>
+                        <distributionDirectory>
+                            <origin>staging/windows/scripts</origin>
+                        </distributionDirectory>
+                    </distributionFileList>
+                </folder>
+            </folderList>
+            <!-- WIN: Start Menu -->
+            <startMenuShortcutList>
+                 <!-- Launch PostGIS -->
+                 <startMenuFolder>
+                    <name>PostGIS</name>
+                    <platforms>windows</platforms>
+                    <startMenuShortcutList>
+                       <startMenuLinkShortcut>
+                           <comment>PostGIS Documentation</comment>
+                           <name>PostGIS Documentation</name>
+                           <runInTerminal>0</runInTerminal>
+                           <url>file://${docdir}/postgis/postgis.html</url>
+                           <windowsIcon>${installdir}\PostGIS\scripts\images\pg-launchPostGISDocs.ico</windowsIcon>
+                           <ruleList>
+                               <isFalse value="${extract_mode}"/>
+                           </ruleList>
+                        </startMenuLinkShortcut>
+                        <startMenuLinkShortcut>
+                           <comment>PostGIS JDBC Documentation</comment>
+                           <name>PostGIS JDBC Documentation</name>
+                           <runInTerminal>0</runInTerminal>
+                           <url>file://${docdir}/postgis/jdbc/index.html</url>
+                           <windowsIcon>${installdir}\PostGIS\scripts\images\pg-launchPostGISDocs.ico</windowsIcon>
+                           <ruleList>
+                               <isFalse value="${extract_mode}"/>
+                           </ruleList>
+                        </startMenuLinkShortcut>
+                    </startMenuShortcutList>
+                 </startMenuFolder>
+            </startMenuShortcutList>
+        </component>
+    </componentList>
+    <parameterList>
+        <booleanParameter name="extract_mode" cliOptionName="extract-only" default="0" ask="1" cliOptionShow="1"/>
+        <booleanParameter name="admin_rights" cliOptionName="require-admin" default="0" ask="0" cliOptionShow="0"/>
+	<stringParameter name="originalplatform" ask="0" cliOptionShow="0"/>
+	<stringParameter name="branding" cliOptionName="branding" ask="0" cliOptionShow="0"/>
+        <booleanParameter>
+             <name>upgrade_mode</name>
+             <displayStyle>checkbox-left</displayStyle>
+             <title>${msg(upgrade.mode.title)}</title>
+             <description>${msg(upgrade.mode.description)}</description>
+             <explanation>${msg(upgrade.mode.explanation)}</explanation>
+             <ask>yes</ask>
+             <default>0</default> 
+             <ruleList>
+                <compareText>
+                    <logic>equals</logic>
+                    <text>${PostGISVersionInstalled}</text>
+                    <value></value>
+                </compareText>
+                <isFalse value="${extract_mode}"/>
+             </ruleList>
+        </booleanParameter>
+        <!-- PostgreSQL Server Details Verification Page -->
+        <parameterGroup>
+            <name>pgdetails</name>
+            <title>${msg(pgplus.details.title)}</title>
+            <explanation>${msg(pgplus.details.explanation)}</explanation>
+            <value/>
+            <default/>
+            <parameterList>
+                <!-- Postgres User -->
+                <stringParameter>
+                    <name>pguser</name>
+                    <description>User Name</description>
+                    <explanation/>
+                    <value/>
+		    <ask>0</ask>
+                    <default>${defaultuser}</default>
+                    <allowEmptyValue>1</allowEmptyValue>
+                    <width>40</width>
+                </stringParameter>
+	            <!-- Postgres User Password -->
+                <passwordParameter>
+                    <name>pgpassword</name>
+                    <title>Password</title>
+                    <description>Password</description>
+                    <explanation/>
+                    <value/>
+                    <default>${defaultpassword}</default>
+                    <allowEmptyValue>1</allowEmptyValue>
+                    <askForConfirmation>0</askForConfirmation>
+                    <descriptionRetype/>
+                    <width>40</width>
+                </passwordParameter>
+                <!-- Postgres Port(Default 5432) -->
+                <stringParameter>
+                    <name>pgport</name>
+                    <description>Port</description>
+                    <explanation/>
+                    <value/>
+		    <ask>0</ask>
+                    <default>5432</default>
+                    <allowEmptyValue>1</allowEmptyValue>
+                    <width>40</width>
+                </stringParameter>
+                <!-- Postgres Home Directory -->
+                <directoryParameter>
+                    <name>pghome</name>
+                    <description>PostgreSQL Home Directory</description>
+                    <explanation/>
+                    <value/>
+                    <default>${installdir}</default>
+                    <allowEmptyValue>1</allowEmptyValue>
+                    <mustBeWritable>0</mustBeWritable>
+                    <mustExist>0</mustExist>
+                    <ask>0</ask>
+                    <width>40</width>
+                </directoryParameter>
+                <directoryParameter>
+                    <name>pgdatabase</name>
+                    <description>PostgreSQL Database</description>
+                    <explanation/>
+                    <value/>
+                    <default></default>
+                    <ask>0</ask>
+                </directoryParameter>
+	        <!-- PostgreSQL Server Installed? -->
+                <booleanParameter>
+                    <name>pginstalled</name>
+                    <description>PostgreSQL Installed</description>
+                    <explanation/>
+                    <value>${pginstalled}</value>
+                    <default>0</default>
+                    <ask>0</ask>
+                    <displayStyle>checkbox-right</displayStyle>
+                </booleanParameter>
+            </parameterList>
+            <ruleList>
+                <compareText>
+                    <logic>equals</logic>
+                    <text>${PostGISVersionInstalled}</text>
+                    <value></value>
+                </compareText>
+                <isFalse value="${extract_mode}"/>
+                <isFalse value="${upgrade_mode}"/>
+            </ruleList>
+            <!-- Checking the validity of PostgreSQL Server Details -->
+            <validationActionList>
+                <actionGroup>
+                    <actionList>
+                        <throwError>
+                            <text>${msg(pgplus.blank.error)}</text>
+                        </throwError>
+                    </actionList>
+                    <ruleList>
+                        <compareText>
+                            <text>${pgpassword}</text>
+                            <logic>equals</logic>
+                            <value/>
+                        </compareText>
+                    </ruleList>
+                </actionGroup>
+
+                <!-- Validate the PostgreSQL Server Details -->
+                <actionGroup>
+                    <actionList>
+                        <setEnvironmentVariable name="PGHOST" value="${pghost}"/>
+                        <setEnvironmentVariable name="PGUSER" value="${pguser}"/>
+                        <setEnvironmentVariable name="PGPASSWORD" value="${pgpassword}"/>
+                        <setEnvironmentVariable name="PGPORT" value="${pgport}"/>
+                        <setEnvironmentVariable name="PGDATABASE" value=""/>
+                        <setInstallerVariable name="pgtempdbname" value=""/>
+                        <setInstallerVariable name="connection" value=""/>
+
+                        <setInstallerVariable name="psql_executable" value="${pghome}/bin/psql"/>
+                        <setInstallerVariable name="psql_executable" value="${pghome}\bin\psql.exe">
+                            <ruleList>
+                                <compareText logic="equals" text="${platform_name}" value="windows"/>
+                            </ruleList>
+                        </setInstallerVariable>
+
+                        <!-- Check connection against the database, if given as the command-line argument -->
+                        <actionGroup>
+                            <actionList>
+                                <setInstallerVariableFromScriptOutput name="connection"
+                                        workingDirectory="${installdir}/bin"
+                                        abortOnError="0" showMessageOnError="0"
+                                        exec="${psql_executable}"
+                                        execArgs="-l -d &quot;${pgdatabase}&quot;"/>
+                                <stringModify text="${connection}" variable="connection" logic="trim"/>
+                            </actionList>
+                            <ruleList>
+                                <compareText logic="does_not_equal" text="${pgdatabase}" value=""/>
+                            </ruleList>
+                        </actionGroup>
+
+                        <foreach variables="dbname">
+                            <values>postgres edb template1</values>
+                            <actionList>
+                                <setInstallerVariableFromScriptOutput name="connection"
+                                        workingDirectory="${installdir}/bin"
+                                        abortOnError="0" showMessageOnError="0"
+                                        exec="${psql_executable}"
+                                        execArgs="-l -d ${dbname}">
+                                    <ruleList>
+                                        <compareText logic="equals" text="${connection}" value=""/>
+                                    </ruleList>
+                                </setInstallerVariableFromScriptOutput>
+
+                                <stringModify text="${connection}" variable="connection" logic="trim"/>
+                                <setInstallerVariable name="pgtempdbname" value="${dbname}">
+                                    <ruleList>
+                                        <compareText logic="does_not_equal" text="${connection}" value=""/>
+                                        <compareText logic="equals" text="${pgtempdbname}" value=""/>
+                                    </ruleList>
+                                </setInstallerVariable>
+                            </actionList>
+                            <ruleList>
+                                <compareText logic="equals" text="${pgdatabase}" value=""/>
+                            </ruleList>
+                        </foreach>
+
+                        <throwError text="${program_stderr}">
+                            <ruleList>
+                                <compareText logic="equals" text="${connection}" value=""/>
+                            </ruleList>
+                        </throwError>
+
+                        <setEnvironmentVariable name="PGDATABASE" value="${pgtempdbname}"/>
+                        <setEnvironmentVariable name="PGDATABASE" value="${pgdatabase}">
+                            <ruleList>
+                                <compareText logic="does_not_equal" text="${pgdatabase}" value=""/>
+                            </ruleList>
+                        </setEnvironmentVariable>
+
+                        <!-- Check db exists -->
+                        <setInstallerVariable name="dbexist" value=""/>
+                        <setInstallerVariableFromScriptOutput name="dbexist"
+                                workingDirectory="${pghome}/bin"
+                                abortOnError="0" showMessageOnError="0"
+                                exec="${psql_executable}"
+                                execArgs="-t -A -c &quot;SELECT count(*) FROM pg_catalog.pg_database d WHERE d.datname='template_postgis'&quot;"/>
+
+                        <!-- Inform the user about the existing database and user -->
+                        <showQuestion text="${msg(templatedb.found.info)}" variable="response">
+                            <ruleList>
+                                <isTrue value="${dbexist}"/>
+                            </ruleList>
+                        </showQuestion>
+
+                        <!-- Exit the installation if the user wants to quit -->
+                        <exit exitCode="0">
+                            <ruleList>
+                                <compareText logic="equals" value="no" text="${response}"/>
+                            </ruleList>
+                        </exit>
+                    </actionList>
+                </actionGroup>
+            </validationActionList>
+        </parameterGroup>
+
+	<!-- Explain that we're using an existing installation directory -->
+	<labelParameter>
+            <name>upgrade</name>
+            <title>${msg(upgrade.existing.installation.title)}</title>
+            <description>${msg(upgrade.existing.installation.description)}</description>
+            <ruleList>
+		<compareText>
+                    <logic>does_not_equal</logic>
+                    <text>${PostGISVersionInstalled}</text>
+                    <value></value>
+                </compareText>
+            </ruleList>
+        </labelParameter>
+    </parameterList>
+</project>
