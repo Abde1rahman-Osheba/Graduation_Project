@@ -59,6 +59,8 @@ from app.api.v1.scoring import router as scoring_router  # noqa: E402
 from app.api.v1.organization_matching import (  # noqa: E402
     router as organization_matching_router,
 )
+from app.api.v1.interviews import router as interviews_router  # noqa: E402
+from app.api.v1.decision_support import router as decision_support_router  # noqa: E402
 
 # ── Register routers ───────────────────────────────────────────────────
 app.include_router(auth_router, prefix="/api/v1")
@@ -71,6 +73,8 @@ app.include_router(admin_router, prefix="/api/v1")
 app.include_router(job_import_router, prefix="/api/v1")
 app.include_router(scoring_router, prefix="/api/v1")
 app.include_router(organization_matching_router, prefix="/api/v1")
+app.include_router(interviews_router, prefix="/api/v1")
+app.include_router(decision_support_router, prefix="/api/v1")
 # Health router exposes /api/v1/health/databases plus the legacy
 # per-service paths used by integration tests.
 app.include_router(health_router, prefix="/api/v1")

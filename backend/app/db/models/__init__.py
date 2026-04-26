@@ -35,6 +35,23 @@ from app.db.models.organization_matching import (
     OrganizationCandidateRanking,
     OrganizationOutreachMessage,
 )
+from app.db.models.interview import (
+    Interview,
+    InterviewParticipant,
+    InterviewQuestionPack,
+    InterviewTranscript,
+    InterviewSummary,
+    InterviewEvaluation,
+    InterviewDecisionPacket,
+    InterviewHumanDecision,
+)
+from app.db.models.decision_support import (
+    DecisionEmail,
+    DecisionScoreBreakdown,
+    DecisionSupportPacket,
+    DevelopmentPlan,
+    HrFinalDecision,
+)
 
 __all__ = [
     "Base",
@@ -85,4 +102,18 @@ __all__ = [
     "OrganizationBlindCandidateMap",
     "OrganizationCandidateRanking",
     "OrganizationOutreachMessage",
+    # Interview intelligence
+    "Interview",
+    "InterviewParticipant",
+    "InterviewQuestionPack",
+    "InterviewTranscript",
+    "InterviewSummary",
+    "InterviewEvaluation",
+    "InterviewDecisionPacket",
+    "InterviewHumanDecision",
+    "DecisionSupportPacket",
+    "DecisionScoreBreakdown",
+    "HrFinalDecision",
+    "DevelopmentPlan",
+    "DecisionEmail",
 ]

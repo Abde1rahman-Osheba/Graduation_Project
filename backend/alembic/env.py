@@ -48,6 +48,23 @@ from app.db.models.organization_matching import (  # noqa: F401
     OrganizationCandidateRanking,
     OrganizationOutreachMessage,
 )
+from app.db.models.interview import (  # noqa: F401
+    Interview,
+    InterviewParticipant,
+    InterviewQuestionPack,
+    InterviewTranscript,
+    InterviewSummary,
+    InterviewEvaluation,
+    InterviewDecisionPacket,
+    InterviewHumanDecision,
+)
+from app.db.models.decision_support import (  # noqa: F401
+    DecisionEmail,
+    DecisionScoreBreakdown,
+    DecisionSupportPacket,
+    DevelopmentPlan,
+    HrFinalDecision,
+)
 
 config = context.config
 

@@ -465,6 +465,43 @@ pytest app/tests/integration/test_job_import_pipeline.py -v
 
 ---
 
+## Interview intelligence module
+
+PATHS includes an **Interview Intelligence** workflow (inspired by LangGraph-style interview flows like TalentTalk) that stays **human-in-the-loop**: the system may *recommend* Accept / Reject / Hold / another round, but **only an HR user** records the final decision.
+
+### Database
+
+Apply migrations (adds `interviews`, `interview_question_packs`, `interview_transcripts`, `interview_summaries`, `interview_evaluations`, `interview_decision_packets`, `interview_human_decisions`, etc.):
+
+```bash
+alembic upgrade head
+```
+
+### API
+
+Routes are mounted at **`/api/v1/interviews`**. All organization-scoped calls require a query parameter **`org_id=<uuid>`** (except body-only routes such as `POST /availability` and `POST /schedule`, which include `organization_id` in the JSON body).
+
+| Method | Path | Purpose |
+|--------|------|--------|
+| POST | `/interviews/availability` | List deterministic UTC business-hour slots (stub calendar) |
+| POST | `/interviews/schedule` | Create `Interview`, optional Google Meet, fallback manual URL |
+| POST | `/interviews/` | Create draft interview row |
+| POST | `/interviews/{id}/generate-questions` | HR/technical question packs (LLM) |
+| POST | `/interviews/{id}/transcript` | Store transcript text |
+| POST | `/interviews/{id}/analyze` | Run LangGraph: summary → HR → technical → compliance → decision packet |
+| POST | `/interviews/{id}/human-decision` | **HR** records final accept/reject/hold (audited) |
+| GET | `/interviews/candidate/{id}/meeting` | Candidate: own meeting link + times |
+
+**Environment:** set `INTERVIEW_INTELLIGENCE_ENABLED=true` (default). For Google Calendar/Meet, set `GOOGLE_CALENDAR_SERVICE_ACCOUNT_FILE` or `GOOGLE_APPLICATION_CREDENTIALS` and install `google-api-python-client` and `google-auth` (optional). Without Google, scheduling still returns a **manual/placeholder** join URL so the API does not fail.
+
+**LLM:** reuses the existing org LLM stack (`LLM_PROVIDER`, `OPENROUTER_API_KEY`, or Ollama per settings).
+
+### Audit
+
+Agent and HR actions append rows to the existing **`audit_logs`** table (`entity_type=interview`).
+
+---
+
 ## Known Limitations
 
 1. **Ollama model pull required**: The LLM and embedding models must be manually pulled into the Ollama container after first start.

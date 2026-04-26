@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     openrouter_model: str = "meta-llama/llama-3.2-3b-instruct:free"
     openrouter_referer: str = "https://paths.local"
     openrouter_app_title: str = "PATHS Scoring Agent"
+    # Decision Support System (DSS) — spec: Llama 3.2 8B
+    openrouter_dss_model: str = "meta-llama/llama-3.2-8b-instruct"
+    openrouter_development_model: str = "meta-llama/llama-3.2-8b-instruct"
+    openrouter_outreach_model: str = "meta-llama/llama-3.2-8b-instruct"
+    decision_support_enabled: bool = True
+    dss_openrouter_timeout_seconds: float = 120.0
+    dss_max_json_retries: int = 1
 
     # ── Candidate-Job scoring service ──────────────────────────────────
     scoring_service_enabled: bool = True
@@ -147,6 +154,14 @@ class Settings(BaseSettings):
     mcp_enabled: bool = False
     mcp_google_calendar_enabled: bool = False
     mcp_gmail_enabled: bool = False
+
+    # ── Interview intelligence module ───────────────────────────────────
+    interview_intelligence_enabled: bool = True
+    # Google Calendar + Meet (optional; service account JSON)
+    google_application_credentials: str = ""
+    google_calendar_service_account_file: str = ""
+    google_calendar_id: str = "primary"
+    google_workspace_impersonate_user: str = ""
 
     # ── Job Scraper (hourly LinkedIn / careers-page import) ────────────
     # Wraps the external `Job_Scraper-main` module. Hourly scheduler
